@@ -6,7 +6,7 @@ import warnings
 from functools import wraps
 from itertools import count
 
-from django.db import connections, router, transaction
+from django.db import connections, router, transaction, close_old_connections
 from django.db import models
 from django.conf import settings
 
@@ -54,6 +54,7 @@ def transaction_retry(max_retries=1):
                     # if some operation breaks the transaction, so saving
                     # the task result won't be possible until we rollback
                     # the transaction.
+                    close_old_connections()
                     if retries >= _max_retries:
                         raise
         return _inner
@@ -66,6 +67,7 @@ class TaskResultManager(models.Manager):
 
     _last_id = None
 
+    @transaction_retry(max_retries=2)
     def get_task(self, task_id):
         """Get result for task by ``task_id``.
 
